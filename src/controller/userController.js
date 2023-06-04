@@ -1,12 +1,12 @@
-import { connectToDB, getDB } from '../config/connectDB';
+//import { connectToDB, getDB } from '../config/connectDB';
 import userService from '../service/userService';
 
-let db;
-connectToDB((err) => {
-    if (!err) {
-        db = getDB();
-    }
-});
+// let db;
+// connectToDB((err) => {
+//     if (!err) {
+//         db = getDB();
+//     }
+// });
 
 let createNewUser = async (req, res) => {
     try {

@@ -18,7 +18,7 @@ let checkMissingParams = (data) => {
     Object.keys(data).forEach((key) => fileds.push(key));
 
     for (let i = 0; i < fileds.length; i++) {
-        if (!data[fileds[i]]) {
+        if (!data[fileds[i]] && !data[fileds[i]] !== 0) {
             value = fileds[i];
             break;
         }

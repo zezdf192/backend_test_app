@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 
 import { connectToDB, getDB } from './config/connectDB';
 import initDBUser from './route/user';
+import initDBExam from './route/exam';
 
 const app = express();
 
@@ -15,10 +16,11 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb' }));
 
 initDBUser(app);
+initDBExam(app);
 
 const port = process.env.PORT || 8080;
 
