@@ -1,5 +1,6 @@
 import express from 'express';
 import examController from '../controller/examController';
+import ratingController from '../controller/ratingController';
 
 const router = express.Router();
 
@@ -27,7 +28,18 @@ const initDBExam = (app) => {
     router.post('/sort-do-exam-by-key', examController.sortDoExamByKey);
 
     //filter exam - exam
-    router.get('/search-all-exam', examController.searchAllExam);
+    router.post('/get-all-exam-by-user-id', examController.getAllExamByUserID);
+    router.post('/search-all-exam-by-user-id', examController.searchAllExamByUserID);
+    router.post('/sort-exam-by-key', examController.sortExamByKey);
+
+    //Ratings
+    router.get('/get-less-list-exam-ratings', ratingController.getLessListExamRatings);
+
+    router.get('/get-detail-exam-ratings', ratingController.getDetailExamRatings);
+    router.post('/filter-exam-ratings', ratingController.filterExamRatings);
+    router.get('/get-all-do-exam-ratings', ratingController.getAllDoExamRatings);
+
+    router.post('/sort-my-ratings-by-type', ratingController.sortMyRatingsByType);
 
     return app.use('/api', router);
 };

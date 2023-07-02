@@ -1,5 +1,6 @@
 import { connectToDB, getDB } from '../config/connectDB';
 import { ObjectId } from 'mongodb';
+import _ from 'lodash';
 
 let db;
 connectToDB((err) => {
@@ -82,10 +83,19 @@ let getDetailExamById = (id) => {
                     .find({ _id: new ObjectId(id) })
                     .toArray();
 
+                let users = await db
+                    .collection('doExam')
+                    .find({ 'data.examID': id })
+                    .sort({ ['data.maxScore']: -1, ['data.valueTimeDoExam']: 1, ['data.quantityJoin']: 1 })
+                    .toArray();
+
                 resolve({
                     errCode: 0,
                     message: 'Lấy thông tin bài thi thành công',
-                    data: exam[0],
+                    data: {
+                        exam: exam[0],
+                        users: users,
+                    },
                 });
             }
         } catch (error) {
@@ -148,7 +158,9 @@ let studentDoExam = (data) => {
                     message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
                 });
             } else {
-                console.log(data);
+                let isUpdateDoExam = false;
+                let isFirstDoExam = false;
+
                 let doExam = await db
                     .collection('doExam')
                     .find({
@@ -164,55 +176,106 @@ let studentDoExam = (data) => {
                 if (doExam.length > 0) {
                     data.quantityJoin = +doExam[0].data.quantityJoin + 1;
 
-                    if (doExam[0].data.maxScore >= data.maxScore) {
-                        data.maxScore = doExam[0].data.maxScore;
-                        if (doExam[0].data.valueTimeDoExamGreatest < data.valueTimeDoExamGreatest) {
-                            data.valueTimeDoExamGreatest = doExam[0].data.valueTimeDoExamGreatest;
-                            data.dateDoExam = doExam[0].data.dateDoExam;
-                            data.timeVi = doExam[0].data.timeVi;
-                            data.timeEn = doExam[0].data.timeEn;
-                        }
-                    }
-
-                    await db.collection('doExam').updateOne(
-                        {
-                            $and: [
-                                { 'data.userID': data.userID },
+                    if (doExam[0].data.maxScore < data.currentScore) {
+                        isUpdateDoExam = true;
+                        await db.collection('doExam').updateOne(
+                            {
+                                $and: [
+                                    { 'data.userID': data.userID },
+                                    {
+                                        'data.examID': data.examID,
+                                    },
+                                ],
+                            },
+                            { $set: { data } },
+                        );
+                    } else if (doExam[0].data.maxScore === data.currentScore) {
+                        if (doExam[0].data.valueTimeDoExam > data.currentValueTimeDoExam) {
+                            isUpdateDoExam = true;
+                            await db.collection('doExam').updateOne(
                                 {
-                                    'data.examID': data.examID,
+                                    $and: [
+                                        { 'data.userID': data.userID },
+                                        {
+                                            'data.examID': data.examID,
+                                        },
+                                    ],
                                 },
-                            ],
-                        },
-                        { $set: { data } },
-                    );
+                                { $set: { data } },
+                            );
+                        } else {
+                            await db.collection('doExam').updateOne(
+                                {
+                                    $and: [
+                                        { 'data.userID': data.userID },
+                                        {
+                                            'data.examID': data.examID,
+                                        },
+                                    ],
+                                },
+                                {
+                                    $set: {
+                                        'data.quantityJoin': data.quantityJoin,
+                                        'data.currentScore': data.currentScore,
+                                        'data.currentQuantityAnswerTrue': data.currentQuantityAnswerTrue,
+                                        'data.currentValueTimeDoExam': data.currentValueTimeDoExam,
+                                        'data.currentTimeEn': data.currentTimeEn,
+                                        'data.currentTimeVi': data.currentTimeVi,
+                                    },
+                                },
+                            );
+                        }
+                    } else {
+                        await db.collection('doExam').updateOne(
+                            {
+                                $and: [
+                                    { 'data.userID': data.userID },
+                                    {
+                                        'data.examID': data.examID,
+                                    },
+                                ],
+                            },
+                            {
+                                $set: {
+                                    'data.quantityJoin': data.quantityJoin,
+                                    'data.currentScore': data.currentScore,
+                                    'data.currentQuantityAnswerTrue': data.currentQuantityAnswerTrue,
+                                    'data.currentValueTimeDoExam': data.currentValueTimeDoExam,
+                                    'data.currentTimeEn': data.currentTimeEn,
+                                    'data.currentTimeVi': data.currentTimeVi,
+                                },
+                            },
+                        );
+                    }
                 } else {
+                    isFirstDoExam = true;
                     await db.collection('doExam').insertOne({
                         data,
                     });
                 }
 
-                // let exam = await db
-                //     .collection('exam')
-                //     .find({ _id: new ObjectId(data.examID) })
-                //     .toArray();
-
-                // await db
-                //     .collection('exam')
-                //     .updateOne(
-                //         { _id: new ObjectId(data.examID) },
-                //         { $set: { 'data.quantityJoin': exam[0].data.quantityJoin + 1 } },
-                //     );
-
-                let user = await db
-                    .collection('users')
-                    .find({ _id: new ObjectId(data.userID) })
+                //Cập nhập số lượt thi trong collection exam
+                let exam = await db
+                    .collection('exam')
+                    .find({ _id: new ObjectId(data.examID) })
                     .toArray();
 
-                if (user.length > 0) {
+                await db
+                    .collection('exam')
+                    .updateOne(
+                        { _id: new ObjectId(data.examID) },
+                        { $set: { 'data.quantityJoin': exam[0].data.quantityJoin + 1 } },
+                    );
+
+                //cap nhat danh sach bai thi da lam
+
+                let user = await db.collection('users').findOne({ _id: new ObjectId(data.userID) });
+
+                if (user) {
                     let isCheck = true;
 
-                    for (let i = 0; i < user[0].userExamID.length; i++) {
-                        if (user[0].userExamID[i] === data.examID) {
+                    for (let i = 0; i < user.userExamID.length; i++) {
+                        if (user.userExamID[i] === data.examID) {
                             isCheck = false;
                             break;
                         }
@@ -223,11 +286,94 @@ let studentDoExam = (data) => {
                             { _id: new ObjectId(data.userID) },
                             {
                                 $set: {
-                                    userExamID: [...user[0].userExamID, data.examID],
+                                    userExamID: [...user.userExamID, data.examID],
                                 },
                             },
                         );
                     }
+                }
+
+                // Cập nhật cơ sở dữ liệu ratings
+                let ratings = await db.collection('ratings').findOne({ 'data.examID': data.examID });
+
+                if (!_.isEmpty(ratings)) {
+                    if (isFirstDoExam) {
+                        let raingsUpdate = await db.collection('ratings').findOne({ 'data.examID': data.examID });
+
+                        let copyUsers = raingsUpdate.users;
+
+                        copyUsers.push(data);
+                        copyUsers.sort((a, b) => {
+                            if (a.maxScore !== b.maxScore) {
+                                return b.maxScore - a.maxScore; // Sắp xếp theo field1
+                            } else if (a.valueTimeDoExam !== b.valueTimeDoExam) {
+                                return a.valueTimeDoExam - b.valueTimeDoExam; // Sắp xếp theo field2 (kiểu chuỗi)
+                            } else {
+                                return a.quantityJoin - b.quantityJoin; // Sắp xếp theo field3
+                            }
+                        });
+
+                        raingsUpdate.users = [...copyUsers];
+
+                        await db
+                            .collection('ratings')
+                            .updateOne({ 'data.examID': data.examID }, { $set: { users: raingsUpdate.users } });
+                    } else {
+                        if (isUpdateDoExam) {
+                            let raingsUpdate = await db.collection('ratings').findOne({ 'data.examID': data.examID });
+
+                            if (raingsUpdate) {
+                                let copyUsers = raingsUpdate.users;
+
+                                for (let i = 0; i < copyUsers.length; i++) {
+                                    if (copyUsers[i].userID === data.userID) {
+                                        copyUsers[i] = data;
+                                        break;
+                                    }
+                                }
+
+                                //sap xep truoc khi dua vao database
+                                copyUsers.sort((a, b) => {
+                                    if (a.maxScore !== b.maxScore) {
+                                        return b.maxScore - a.maxScore; // Sắp xếp theo field1
+                                    } else if (a.valueTimeDoExam !== b.valueTimeDoExam) {
+                                        return a.valueTimeDoExam - b.valueTimeDoExam; // Sắp xếp theo field2 (kiểu chuỗi)
+                                    } else {
+                                        return a.quantityJoin - b.quantityJoin; // Sắp xếp theo field3
+                                    }
+                                });
+
+                                raingsUpdate.users = [...copyUsers];
+
+                                await db
+                                    .collection('ratings')
+                                    .updateOne({ 'data.examID': data.examID }, { $set: { users: raingsUpdate.users } });
+                            }
+                        } else {
+                            let raingsUpdate = await db.collection('ratings').findOne({ 'data.examID': data.examID });
+
+                            let copyUsers = raingsUpdate.users;
+
+                            for (let i = 0; i < copyUsers.length; i++) {
+                                if (copyUsers[i].userID === data.userID) {
+                                    copyUsers[i] = { ...copyUsers[i], quantityJoin: data.quantityJoin };
+                                    break;
+                                }
+                            }
+
+                            raingsUpdate.users = [...copyUsers];
+
+                            await db
+                                .collection('ratings')
+                                .updateOne({ 'data.examID': data.examID }, { $set: { users: raingsUpdate.users } });
+                        }
+                    }
+                } else {
+                    exam[0].data.examID = data.examID;
+                    await db.collection('ratings').insertOne({
+                        data: exam[0] && exam[0].data,
+                        users: [data],
+                    });
                 }
 
                 resolve({
@@ -284,8 +430,6 @@ let searchAllDoExamByUserId = (data) => {
                     message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
                 });
             } else {
-                console.log(data);
-
                 let exam = await db
                     .collection('doExam')
                     .find({
@@ -320,7 +464,7 @@ let searchAllDoExamByUserId = (data) => {
                         ],
                     })
                     .toArray();
-                console.log(data);
+                // console.log(data);
                 resolve({
                     errCode: 0,
                     message: 'Lấy thông tin bài thi thành công',
@@ -372,41 +516,81 @@ let sortDoExamByKey = (request) => {
                 //console.log(request);
                 let typeSort = request.typeSort === 'up' ? 1 : -1;
                 let data = request.dataSearch;
-                let exam = await db
-                    .collection('doExam')
-                    .find({
-                        $and: [
-                            { 'data.userID': { $eq: data.userID } },
-                            { 'data.nameExam': { $regex: data.name, $options: 'i' } },
-                            data.score
-                                ? data.typeScore === 'greater'
-                                    ? { 'data.maxScore': { $gte: +data.score } }
-                                    : { 'data.maxScore': { $lte: +data.score } }
-                                : {},
-                            data.turns
-                                ? data.typeTurns === 'greater'
-                                    ? { 'data.quantityJoin': { $gte: +data.turns } }
-                                    : { 'data.quantityJoin': { $lte: +data.turns } }
-                                : {},
-                            data.time
-                                ? data.typeTime === 'greater'
-                                    ? { 'data.valueTimeDoExamGreatest': { $gte: +data.time } }
-                                    : { 'data.valueTimeDoExamGreatest': { $lte: +data.time } }
-                                : {},
-                            data.dayStart
-                                ? {
-                                      'data.dateDoExam': { $gte: data.dayStart },
-                                  }
-                                : {},
-                            data.dayEnd
-                                ? {
-                                      'data.dateDoExam': { $lte: data.dayEnd },
-                                  }
-                                : {},
-                        ],
-                    })
+                let exam = [];
+                const isEmpty = _.isEmpty(data);
 
-                    .sort({ ['data.' + data.type]: typeSort })
+                if (!isEmpty) {
+                    exam = await db
+                        .collection('doExam')
+                        .find({
+                            $and: [
+                                { 'data.userID': { $eq: request.userID } },
+                                { 'data.nameExam': { $regex: data.name, $options: 'i' } },
+                                data.score
+                                    ? data.typeScore === 'greater'
+                                        ? { 'data.maxScore': { $gte: +data.score } }
+                                        : { 'data.maxScore': { $lte: +data.score } }
+                                    : {},
+                                data.turns
+                                    ? data.typeTurns === 'greater'
+                                        ? { 'data.quantityJoin': { $gte: +data.turns } }
+                                        : { 'data.quantityJoin': { $lte: +data.turns } }
+                                    : {},
+                                data.time
+                                    ? data.typeTime === 'greater'
+                                        ? { 'data.valueTimeDoExamGreatest': { $gte: +data.time } }
+                                        : { 'data.valueTimeDoExamGreatest': { $lte: +data.time } }
+                                    : {},
+                                data.dayStart
+                                    ? {
+                                          'data.dateDoExam': { $gte: data.dayStart },
+                                      }
+                                    : {},
+                                data.dayEnd
+                                    ? {
+                                          'data.dateDoExam': { $lte: data.dayEnd },
+                                      }
+                                    : {},
+                            ],
+                        })
+                        .sort({ ['data.' + request.type]: typeSort })
+                        .toArray();
+                } else {
+                    exam = await db
+                        .collection('doExam')
+                        .find({
+                            $and: [{ 'data.userID': { $eq: request.userID } }],
+                        })
+
+                        .sort({ ['data.' + request.type]: typeSort })
+                        .toArray();
+                }
+
+                resolve({
+                    errCode: 0,
+                    message: 'Lấy thông tin bài thi thành công',
+                    data: exam,
+                });
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+let getAllExamByUserID = (data) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            if (!data.userID) {
+                resolve({
+                    errCode: 1,
+                    message: 'Nhập thiếu id, vui lòng bổ sung',
+                });
+            } else {
+                let exam = await db
+                    .collection('exam')
+                    .find({ 'user._id': new ObjectId(data.userID) })
+                    .sort({ ['data.title']: 1 })
                     .toArray();
 
                 resolve({
@@ -421,21 +605,110 @@ let sortDoExamByKey = (request) => {
     });
 };
 
-let searchAllExam = (keyword) => {
+let searchAllExamByUserID = (data) => {
     return new Promise(async (resolve, reject) => {
         try {
-            let exam = await db
-                .collection('exam')
-                .find({
-                    $and: [{ 'data.title': { $regex: keyword, $options: 'i' } }],
-                })
-                .toArray();
+            if (!data.userID) {
+                resolve({
+                    errCode: 1,
+                    message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
+                });
+            } else {
+                //console.log(data);
+                let exam = await db
+                    .collection('exam')
+                    .find({
+                        $and: [
+                            { 'user._id': { $eq: new ObjectId(data.userID) } },
+                            { 'data.title': { $regex: data.nameExam, $options: 'i' } },
+                            data.currentJoin
+                                ? data.typeCurrentJoin === 'greater'
+                                    ? { 'data.quantityJoin': { $gte: +data.currentJoin } }
+                                    : { 'data.quantityJoin': { $lte: +data.currentJoin } }
+                                : {},
+                            data.maxScore !== 'S' ? { 'data.score.value': { $eq: data.maxScore } } : {},
 
-            resolve({
-                errCode: 0,
-                message: 'Lấy thông tin bài thi thành công',
-                data: exam,
-            });
+                            data.maxTime !== 'T' ? { 'data.time.value': { $eq: data.maxTime } } : {},
+                            data.maxQuantity !== 'L' ? { 'data.limit.value': { $eq: data.maxQuantity } } : {},
+                            data.typeExam !== 'ALL' ? { 'data.typeExam': { $eq: data.typeExam } } : {},
+
+                            data.dayStart
+                                ? {
+                                      'data.dateExam': { $gte: data.dayStart },
+                                  }
+                                : {},
+                            data.dayEnd
+                                ? {
+                                      'data.dateExam': { $lte: data.dayEnd },
+                                  }
+                                : {},
+                        ],
+                    })
+                    .toArray();
+
+                resolve({
+                    errCode: 0,
+                    message: 'Lấy thông tin bài thi thành công',
+                    data: exam,
+                });
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+let sortExamByKey = (request) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            if (!request.userID || !request.type || !request.typeSort) {
+                resolve({
+                    errCode: 1,
+                    message: `Bạn đang nhập thiếu, vui lòng bổ sung`,
+                });
+            } else {
+                let typeSort = request.typeSort === 'up' ? 1 : -1;
+                let data = request.dataSearch;
+                // console.log(request);
+                let exam = await db
+                    .collection('exam')
+                    .find({
+                        $and: [
+                            { 'user._id': { $eq: new ObjectId(data.userID) } },
+                            data.nameExam ? { 'data.title': { $regex: data.nameExam, $options: 'i' } } : {},
+                            data.currentJoin
+                                ? data.typeCurrentJoin === 'greater'
+                                    ? { 'data.quantityJoin': { $gte: +data.currentJoin } }
+                                    : { 'data.quantityJoin': { $lte: +data.currentJoin } }
+                                : {},
+                            data.maxScore !== 'S' ? { 'data.score.value': { $eq: data.maxScore } } : {},
+
+                            data.maxTime !== 'T' ? { 'data.time.value': { $eq: data.maxTime } } : {},
+                            data.maxQuantity !== 'L' ? { 'data.limit.value': { $eq: data.maxQuantity } } : {},
+                            data.typeExam !== 'ALL' ? { 'data.typeExam': { $eq: data.typeExam } } : {},
+
+                            data.dayStart
+                                ? {
+                                      'data.dateExam': { $gte: data.dayStart },
+                                  }
+                                : {},
+                            data.dayEnd
+                                ? {
+                                      'data.dateExam': { $lte: data.dayEnd },
+                                  }
+                                : {},
+                        ],
+                    })
+
+                    .sort({ ['data.' + request.type]: typeSort })
+                    .toArray();
+
+                resolve({
+                    errCode: 0,
+                    message: 'Lấy thông tin bài thi thành công',
+                    data: exam,
+                });
+            }
         } catch (error) {
             reject(error);
         }
@@ -453,5 +726,7 @@ export default {
     getAllDoExamByUserId,
     searchAllDoExamByUserId,
     sortDoExamByKey,
-    searchAllExam,
+    searchAllExamByUserID,
+    getAllExamByUserID,
+    sortExamByKey,
 };

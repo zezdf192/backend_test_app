@@ -64,10 +64,10 @@ let createNewUser = (data) => {
                     await db.collection('users').insertOne({
                         name: data.name,
                         email: data.email,
-                        gender: data.gender,
                         password: hashPassword(data.password),
-                        address: data.address,
-                        roleID: data.roleID,
+                        listLikeExam: [],
+                        avatar: '',
+                        roleID: 'R2',
                         userCreateID: [],
                         userExamID: [],
                     });
@@ -103,7 +103,7 @@ let login = (data) => {
                 if (users.length > 0) {
                     let checkPs = checkPassword(data.password, users[0].password);
                     if (checkPs) {
-                        delete users[0].password;
+                        users[0].password = true;
 
                         resolve({
                             errCode: 0,
@@ -208,10 +208,269 @@ let updateUserByID = (data) => {
     });
 };
 
+let createNewUserBySocial = (data) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let users = [];
+            await db
+                .collection('users')
+                .find({ email: data.email })
+                .forEach((user) => users.push(user));
+
+            let userInfor = {
+                name: data.displayName,
+                email: data.email,
+                avatar: data.photoURL,
+                listLikeExam: [],
+                roleID: 'R2',
+                userCreateID: [],
+                userExamID: [],
+            };
+
+            if (users.length === 0) {
+                await db.collection('users').insertOne(userInfor);
+            }
+
+            resolve({
+                errCode: 0,
+                message: 'Tạo mới người dùng thành công',
+                data: userInfor,
+            });
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+let getDetailUser = (email) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            if (!email) {
+                resolve({
+                    errCode: 1,
+                    message: 'Nhập thiếu email, vui lòng bổ sung',
+                });
+            }
+
+            let users = await db.collection('users').find({ email: email.email }).toArray();
+
+            resolve({
+                errCode: 0,
+                data: users,
+            });
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+let updateUserByEmail = (data) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            if (!data.email) {
+                resolve({
+                    errCode: 1,
+                    message: 'Nhập thiếu email, vui lòng bổ sung',
+                });
+            } else {
+                console.log(data);
+                await db.collection('users').updateOne(
+                    { email: data.email },
+                    {
+                        $set: {
+                            [data.key]: data.payload,
+                        },
+                    },
+                );
+
+                if (data.key === 'name') {
+                    await db.collection('ratings').updateMany(
+                        { 'users.email': data.email }, // Điều kiện truy vấn
+                        { $set: { 'users.$.nameUser': data.payload } }, // Dữ liệu cập nhật
+                    );
+                    console.log(data.email);
+                }
+
+                resolve({
+                    errCode: 0,
+                    message: 'Cập nhật thông tin người dùng thành công',
+                });
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+let editPassword = (data) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let ischeck = checkMissingParams(data);
+            if (ischeck) {
+                resolve({
+                    errCode: 1,
+                    message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
+                });
+            } else {
+                let users = [];
+                await db
+                    .collection('users')
+                    .find({ email: data.email })
+                    .forEach((user) => users.push(user));
+
+                if (users.length > 0) {
+                    let checkPs = checkPassword(data.oldPassword, users[0].password);
+                    console.log('data', checkPs);
+                    if (checkPs) {
+                        await db.collection('users').updateOne(
+                            { email: data.email },
+                            {
+                                $set: {
+                                    password: hashPassword(data.password),
+                                },
+                            },
+                        );
+
+                        resolve({
+                            errCode: 0,
+                            message: 'Thay đổi mật khẩu thành công',
+                        });
+                    } else {
+                        resolve({
+                            errCode: 3,
+                            message: 'Mật khẩu nhập vào không chính xác',
+                        });
+                    }
+                } else {
+                    resolve({
+                        errCode: 2,
+                        message: 'Email không tồn tại',
+                    });
+                }
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+let getUserLikeExam = (data) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let ischeck = checkMissingParams(data);
+            if (ischeck) {
+                resolve({
+                    errCode: 1,
+                    message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
+                });
+            } else {
+                const likeExam = await db
+                    .collection('users')
+                    .find({
+                        email: data.email,
+                        listLikeExam: {
+                            $elemMatch: {
+                                $eq: data.examId,
+                            },
+                        },
+                    })
+                    .toArray();
+
+                resolve({
+                    errCode: 0,
+                    data: likeExam.length > 0,
+                });
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+let userLikeExam = (data) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            if (!data.email || !data.examId) {
+                resolve({
+                    errCode: 1,
+                    message: `Bạn đang nhập thiếu field, vui lòng bổ sung`,
+                });
+            } else {
+                if (data.isLike) {
+                    await db
+                        .collection('users')
+                        .updateOne({ email: data.email }, { $push: { listLikeExam: data.examId } });
+
+                    await db
+                        .collection('exam')
+                        .updateOne({ _id: new ObjectId(data.examId) }, { $push: { 'data.quantityLike': data.email } });
+                } else {
+                    await db
+                        .collection('users')
+                        .updateOne({ email: data.email }, { $pull: { listLikeExam: data.examId } });
+
+                    await db
+                        .collection('exam')
+                        .updateOne({ _id: new ObjectId(data.examId) }, { $pull: { 'data.quantityLike': data.email } });
+                }
+
+                resolve({
+                    errCode: 0,
+                    message: 'Update successful',
+                });
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+let getAllExamUserLike = (data) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            if (!data.email) {
+                resolve({
+                    errCode: 1,
+                    message: `Bạn đang nhập thiếu email, vui lòng bổ sung`,
+                });
+            } else {
+                let users = await db.collection('users').find({ email: data.email }).toArray();
+
+                let favorites = users[0].listLikeExam;
+
+                const objectIds = favorites.map((id) => new ObjectId(id));
+
+                let listExam = await db
+                    .collection('exam')
+
+                    .find({
+                        _id: { $in: objectIds },
+                    })
+                    .toArray();
+
+                resolve({
+                    errCode: 0,
+                    data: listExam,
+                    message: 'Get data successfully',
+                });
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
 export default {
     createNewUser,
     login,
     getAllUsers,
     deleteUser,
     updateUserByID,
+    createNewUserBySocial,
+    getDetailUser,
+    editPassword,
+    updateUserByEmail,
+    getUserLikeExam,
+    userLikeExam,
+    getAllExamUserLike,
 };

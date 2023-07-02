@@ -120,9 +120,33 @@ let sortDoExamByKey = async (req, res) => {
     }
 };
 
-let searchAllExam = async (req, res) => {
+let getAllExamByUserID = async (req, res) => {
     try {
-        let respon = await examService.searchAllExam(req.query.keyword);
+        let respon = await examService.getAllExamByUserID(req.body);
+        res.status(200).json(respon);
+    } catch (error) {
+        res.status(200).json({
+            errCode: -1,
+            message: 'Error from server',
+        });
+    }
+};
+
+let searchAllExamByUserID = async (req, res) => {
+    try {
+        let respon = await examService.searchAllExamByUserID(req.body);
+        res.status(200).json(respon);
+    } catch (error) {
+        res.status(200).json({
+            errCode: -1,
+            message: 'Error from server',
+        });
+    }
+};
+
+let sortExamByKey = async (req, res) => {
+    try {
+        let respon = await examService.sortExamByKey(req.body);
         res.status(200).json(respon);
     } catch (error) {
         res.status(200).json({
@@ -143,5 +167,7 @@ export default {
     getAllDoExamByUserId,
     searchAllDoExamByUserId,
     sortDoExamByKey,
-    searchAllExam,
+    searchAllExamByUserID,
+    getAllExamByUserID,
+    sortExamByKey,
 };

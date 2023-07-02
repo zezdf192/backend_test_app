@@ -13,8 +13,22 @@ const initDBUser = (app) => {
 
     //user
     router.get('/get-all-users', userController.getAllUsers);
+    router.get('/get-detail-user', userController.getDetailUser);
     router.delete('/delete-user', userController.deleteUser);
     router.post('/update-user-by-id', userController.updateUserByID);
+
+    router.post('/update-user-by-email', userController.updateUserByEmail);
+
+    router.post('/create-user-by-social', userController.createNewUserBySocial);
+    router.post('/get-exam-user-like', userController.getUserLikeExam);
+
+    router.post('/user-like-exam', userController.userLikeExam);
+
+    router.post('/edit-password', userController.editPassword);
+    router.post('/get-all-exam-user-like', userController.getAllExamUserLike);
+
+    router.post('/get-code-forgot-password', userController.forgotPassword);
+    router.post('/change-password', userController.changePassword);
 
     return app.use('/api', router);
 };
