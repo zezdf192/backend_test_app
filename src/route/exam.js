@@ -16,6 +16,9 @@ const initDBExam = (app) => {
     router.post('/update-exam-by-id', examController.updateExamById);
 
     // Exam students
+    router.post('/create-copy-score-belong-to-user', examController.createCopyScoreBelongToUser);
+    router.get('/get-copy-score-by-code', examController.getCopyScoreByCode);
+
     router.post('/student-do-exam', examController.studentDoExam);
 
     router.post('/get-detail-do-exam-by-id', examController.getDetailDoExamById);
@@ -29,7 +32,7 @@ const initDBExam = (app) => {
 
     //filter exam - exam
     router.post('/get-all-exam-by-user-id', examController.getAllExamByUserID);
-    router.post('/search-all-exam-by-user-id', examController.searchAllExamByUserID);
+    router.post('/search-all-exam-by-user-email', examController.searchAllExamByUserEmail);
     router.post('/sort-exam-by-key', examController.sortExamByKey);
 
     //Ratings
@@ -40,6 +43,11 @@ const initDBExam = (app) => {
     router.get('/get-all-do-exam-ratings', ratingController.getAllDoExamRatings);
 
     router.post('/sort-my-ratings-by-type', ratingController.sortMyRatingsByType);
+
+    //exam private
+    router.post('/get-exam-private-by-code', examController.getExamPrivateByCode);
+
+    router.post('/get-detail-exam-private-for-verify', examController.getDetailExamPrivateForVerify);
 
     return app.use('/api', router);
 };

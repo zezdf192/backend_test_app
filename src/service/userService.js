@@ -445,6 +445,7 @@ let getAllExamUserLike = (data) => {
 
                     .find({
                         _id: { $in: objectIds },
+                        'data.typeExam': 'PUBLIC',
                     })
                     .toArray();
 

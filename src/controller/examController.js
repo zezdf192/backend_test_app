@@ -132,9 +132,9 @@ let getAllExamByUserID = async (req, res) => {
     }
 };
 
-let searchAllExamByUserID = async (req, res) => {
+let searchAllExamByUserEmail = async (req, res) => {
     try {
-        let respon = await examService.searchAllExamByUserID(req.body);
+        let respon = await examService.searchAllExamByUserEmail(req.body);
         res.status(200).json(respon);
     } catch (error) {
         res.status(200).json({
@@ -156,6 +156,54 @@ let sortExamByKey = async (req, res) => {
     }
 };
 
+let createCopyScoreBelongToUser = async (req, res) => {
+    try {
+        let respon = await examService.createCopyScoreBelongToUser(req.body);
+        res.status(200).json(respon);
+    } catch (error) {
+        res.status(200).json({
+            errCode: -1,
+            message: 'Error from server',
+        });
+    }
+};
+
+let getCopyScoreByCode = async (req, res) => {
+    try {
+        let respon = await examService.getCopyScoreByCode(req.query.code);
+        res.status(200).json(respon);
+    } catch (error) {
+        res.status(200).json({
+            errCode: -1,
+            message: 'Error from server',
+        });
+    }
+};
+
+let getExamPrivateByCode = async (req, res) => {
+    try {
+        let respon = await examService.getExamPrivateByCode(req.body);
+        res.status(200).json(respon);
+    } catch (error) {
+        res.status(200).json({
+            errCode: -1,
+            message: 'Error from server',
+        });
+    }
+};
+
+let getDetailExamPrivateForVerify = async (req, res) => {
+    try {
+        let respon = await examService.getDetailExamPrivateForVerify(req.body);
+        res.status(200).json(respon);
+    } catch (error) {
+        res.status(200).json({
+            errCode: -1,
+            message: 'Error from server',
+        });
+    }
+};
+
 export default {
     createNewExam,
     getAllExam,
@@ -167,7 +215,11 @@ export default {
     getAllDoExamByUserId,
     searchAllDoExamByUserId,
     sortDoExamByKey,
-    searchAllExamByUserID,
+    searchAllExamByUserEmail,
     getAllExamByUserID,
     sortExamByKey,
+    createCopyScoreBelongToUser,
+    getCopyScoreByCode,
+    getExamPrivateByCode,
+    getDetailExamPrivateForVerify,
 };

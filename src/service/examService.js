@@ -57,7 +57,7 @@ let createNewExam = (data) => {
 let getAllExam = () => {
     return new Promise(async (resolve, reject) => {
         try {
-            let exam = await db.collection('exam').find().toArray();
+            let exam = await db.collection('exam').find({ 'data.typeExam': 'PUBLIC' }).toArray();
 
             resolve({
                 errCode: 0,
@@ -67,6 +67,21 @@ let getAllExam = () => {
             reject(error);
         }
     });
+};
+
+let ramdomLocationInArray = (array) => {
+    var lengthArray = array.length;
+
+    for (var i = 0; i < lengthArray; i++) {
+        var ramdomLocation = Math.floor(Math.random() * lengthArray);
+
+        // Hoán đổi vị trí của hai phần tử
+        var temp = array[i];
+        array[i] = array[ramdomLocation];
+        array[ramdomLocation] = temp;
+    }
+
+    return array;
 };
 
 let getDetailExamById = (id) => {
@@ -165,7 +180,7 @@ let studentDoExam = (data) => {
                     .collection('doExam')
                     .find({
                         $and: [
-                            { 'data.userID': data.userID },
+                            { 'data.email': data.email },
                             {
                                 'data.examID': data.examID,
                             },
@@ -401,7 +416,7 @@ let getDetailDoExamById = (data) => {
                     .collection('doExam')
                     .find({
                         $and: [
-                            { 'data.userID': data.userID },
+                            { 'data.email': data.email },
                             {
                                 'data.examID': data.examID,
                             },
@@ -480,7 +495,7 @@ let searchAllDoExamByUserId = (data) => {
 let getAllDoExamByUserId = (data) => {
     return new Promise(async (resolve, reject) => {
         try {
-            if (!data.userID) {
+            if (!data.email) {
                 resolve({
                     errCode: 1,
                     message: 'Nhập thiếu id, vui lòng bổ sung',
@@ -488,7 +503,7 @@ let getAllDoExamByUserId = (data) => {
             } else {
                 let exam = await db
                     .collection('doExam')
-                    .find({ 'data.userID': data.userID })
+                    .find({ 'data.email': data.email })
                     .sort({ ['data.nameExam']: 1 })
                     .toArray();
 
@@ -581,15 +596,15 @@ let sortDoExamByKey = (request) => {
 let getAllExamByUserID = (data) => {
     return new Promise(async (resolve, reject) => {
         try {
-            if (!data.userID) {
+            if (!data.email) {
                 resolve({
                     errCode: 1,
-                    message: 'Nhập thiếu id, vui lòng bổ sung',
+                    message: 'Nhập thiếu email, vui lòng bổ sung',
                 });
             } else {
                 let exam = await db
                     .collection('exam')
-                    .find({ 'user._id': new ObjectId(data.userID) })
+                    .find({ 'user.email': data.email })
                     .sort({ ['data.title']: 1 })
                     .toArray();
 
@@ -605,21 +620,20 @@ let getAllExamByUserID = (data) => {
     });
 };
 
-let searchAllExamByUserID = (data) => {
+let searchAllExamByUserEmail = (data) => {
     return new Promise(async (resolve, reject) => {
         try {
-            if (!data.userID) {
+            if (!data.email) {
                 resolve({
                     errCode: 1,
-                    message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
+                    message: `Bạn đang nhập thiếu email, vui lòng bổ sung`,
                 });
             } else {
-                //console.log(data);
                 let exam = await db
                     .collection('exam')
                     .find({
                         $and: [
-                            { 'user._id': { $eq: new ObjectId(data.userID) } },
+                            { 'user.email': { $eq: data.email } },
                             { 'data.title': { $regex: data.nameExam, $options: 'i' } },
                             data.currentJoin
                                 ? data.typeCurrentJoin === 'greater'
@@ -661,7 +675,7 @@ let searchAllExamByUserID = (data) => {
 let sortExamByKey = (request) => {
     return new Promise(async (resolve, reject) => {
         try {
-            if (!request.userID || !request.type || !request.typeSort) {
+            if (!request.email || !request.type || !request.typeSort) {
                 resolve({
                     errCode: 1,
                     message: `Bạn đang nhập thiếu, vui lòng bổ sung`,
@@ -674,7 +688,7 @@ let sortExamByKey = (request) => {
                     .collection('exam')
                     .find({
                         $and: [
-                            { 'user._id': { $eq: new ObjectId(data.userID) } },
+                            { 'user.email': { $eq: data.email } },
                             data.nameExam ? { 'data.title': { $regex: data.nameExam, $options: 'i' } } : {},
                             data.currentJoin
                                 ? data.typeCurrentJoin === 'greater'
@@ -715,6 +729,155 @@ let sortExamByKey = (request) => {
     });
 };
 
+let createCopyScoreBelongToUser = (data) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            if (!data.examInfo || !data.userAnswer) {
+                resolve({
+                    errCode: 1,
+                    message: `Bạn đang nhập thiếu, vui lòng bổ sung`,
+                });
+            } else {
+                // console.log('data', data);
+                await db.collection('copyScore').insertOne({
+                    data,
+                });
+                resolve({
+                    errCode: 0,
+                    message: 'create copy score cuccess',
+                });
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+let getCopyScoreByCode = (code) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            if (!code) {
+                resolve({
+                    errCode: 1,
+                    message: `Bạn đang nhập thiếu id, vui lòng bổ sung`,
+                });
+            } else {
+                // console.log('data', data);
+                let copyScore = await db.collection('copyScore').find({ 'data.code': code }).toArray();
+
+                resolve({
+                    errCode: 0,
+                    data: copyScore[0].data,
+                    message: 'get copy score successfully',
+                });
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+let getExamPrivateByCode = (data) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            if (!data.name && !data.code && !data.email) {
+                resolve({
+                    errCode: 1,
+                    message: `Bạn đang nhập thiếu data, vui lòng bổ sung`,
+                });
+            } else {
+                console.log(data.code);
+                let [exam] = await db.collection('exam').find({ 'data.password': data.code }).toArray();
+
+                if (_.isEmpty(exam)) {
+                    resolve({
+                        errCode: 1,
+                        message: 'Mã code không tồn tại',
+                    });
+                }
+
+                let dataUser = { name: data.name, email: data.email, examId: exam._id };
+                let user = await await db.collection('usersDoPrivate').find(dataUser).toArray();
+                if (user.length === 0) {
+                    await db.collection('usersDoPrivate').insertOne(dataUser);
+                }
+
+                resolve({
+                    errCode: 0,
+                    data: exam,
+                    user: dataUser,
+                    message: 'get copy score successfully',
+                });
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+let getDetailExamPrivateForVerify = (data) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let ischeck = checkMissingParams(data);
+            if (ischeck) {
+                resolve({
+                    errCode: 1,
+                    message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
+                });
+            } else {
+                //console.log('data', data);
+                let exam = await db
+                    .collection('exam')
+                    .find({ _id: new ObjectId(data.examId) })
+                    .toArray();
+
+                if (exam.length > 0) {
+                    if (exam[0].data.typeExam !== 'PUBLIC') {
+                        let user = await db
+                            .collection('usersDoPrivate')
+                            .find({ examId: new ObjectId(data.examId), name: data.nameUser, email: data.email })
+                            .toArray();
+
+                        if (user.length > 0) {
+                            await db.collection('usersDoPrivate').deleteOne({
+                                examId: new ObjectId(data.examId),
+                                name: data.nameUser,
+                                email: data.email,
+                            });
+                        } else {
+                            resolve({
+                                errCode: 1,
+                                message: 'You do not have access rights',
+                            });
+                        }
+                    }
+                }
+
+                let examRamdom = exam[0];
+
+                if (exam.length > 0) {
+                    examRamdom.data.questions = ramdomLocationInArray(exam[0].data.questions);
+
+                    examRamdom.data.questions.forEach((item) => {
+                        return (item.answers = ramdomLocationInArray(item.answers));
+                    });
+                }
+                resolve({
+                    errCode: 0,
+                    message: 'Lấy thông tin bài thi thành công',
+                    data: {
+                        exam: exam[0],
+
+                        examRamdom,
+                    },
+                });
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
 export default {
     createNewExam,
     getAllExam,
@@ -726,7 +889,11 @@ export default {
     getAllDoExamByUserId,
     searchAllDoExamByUserId,
     sortDoExamByKey,
-    searchAllExamByUserID,
+    searchAllExamByUserEmail,
     getAllExamByUserID,
     sortExamByKey,
+    createCopyScoreBelongToUser,
+    getCopyScoreByCode,
+    getExamPrivateByCode,
+    getDetailExamPrivateForVerify,
 };

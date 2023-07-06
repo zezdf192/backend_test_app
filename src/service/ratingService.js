@@ -19,7 +19,7 @@ let getLessListExamRatings = (keyword) => {
             } else {
                 let exam = await db
                     .collection('exam')
-                    .find({ 'data.title': { $regex: keyword, $options: 'i' } })
+                    .find({ 'data.title': { $regex: keyword, $options: 'i' }, 'data.typeExam': 'PUBLIC' })
                     .limit(4)
                     .toArray();
 
@@ -122,16 +122,16 @@ let filterExamRatings = (data) => {
     });
 };
 
-let getAllDoExamRatings = (userID) => {
+let getAllDoExamRatings = (email) => {
     return new Promise(async (resolve, reject) => {
         try {
-            if (!userID) {
+            if (!email) {
                 resolve({
                     errCode: 1,
-                    message: 'Nhập thiếu userID, vui lòng bổ sung',
+                    message: 'Nhập thiếu email, vui lòng bổ sung',
                 });
             } else {
-                let ratings = await db.collection('ratings').find({ 'users.userID': userID }).toArray();
+                let ratings = await db.collection('ratings').find({ 'users.email': email }).toArray();
 
                 //console.log(exam);
 

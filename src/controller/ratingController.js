@@ -38,7 +38,7 @@ let filterExamRatings = async (req, res) => {
 
 let getAllDoExamRatings = async (req, res) => {
     try {
-        let respon = await ratingService.getAllDoExamRatings(req.query.userID);
+        let respon = await ratingService.getAllDoExamRatings(req.query.email);
         res.status(200).json(respon);
     } catch (error) {
         res.status(200).json({
