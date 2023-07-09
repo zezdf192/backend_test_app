@@ -68,7 +68,7 @@ let createNewUser = (data) => {
                         listLikeExam: [],
                         avatar: '',
                         roleID: 'R2',
-                        userCreateID: [],
+                        amountCreate: 0,
                         userExamID: [],
                     });
 
@@ -171,36 +171,27 @@ let deleteUser = (data) => {
 let updateUserByID = (data) => {
     return new Promise(async (resolve, reject) => {
         try {
-            if (!ObjectId.isValid(data.id)) {
+            let ischeck = checkMissingParams(data);
+            if (ischeck) {
                 resolve({
                     errCode: 1,
-                    message: 'Nhập thiếu id, vui lòng bổ sung',
+                    message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
                 });
             } else {
-                let ischeck = checkMissingParams(data);
-                if (ischeck) {
-                    resolve({
-                        errCode: 1,
-                        message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
-                    });
-                } else {
-                    await db.collection('users').updateOne(
-                        { email: data.email },
-                        {
-                            $set: {
-                                name: data.name,
-                                address: data.address,
-                                gender: data.gender,
-                                roleID: data.roleID,
-                            },
+                await db.collection('users').updateOne(
+                    { email: data.email },
+                    {
+                        $set: {
+                            name: data.name,
+                            roleID: data.roleID,
                         },
-                    );
+                    },
+                );
 
-                    resolve({
-                        errCode: 0,
-                        message: 'Cập nhật thông tin người dùng thành công',
-                    });
-                }
+                resolve({
+                    errCode: 0,
+                    message: 'Cập nhật thông tin người dùng thành công',
+                });
             }
         } catch (error) {
             reject(error);
@@ -223,7 +214,7 @@ let createNewUserBySocial = (data) => {
                 avatar: data.photoURL,
                 listLikeExam: [],
                 roleID: 'R2',
-                userCreateID: [],
+                amountCreate: 0,
                 userExamID: [],
             };
 
@@ -273,7 +264,6 @@ let updateUserByEmail = (data) => {
                     message: 'Nhập thiếu email, vui lòng bổ sung',
                 });
             } else {
-                console.log(data);
                 await db.collection('users').updateOne(
                     { email: data.email },
                     {
@@ -288,7 +278,11 @@ let updateUserByEmail = (data) => {
                         { 'users.email': data.email }, // Điều kiện truy vấn
                         { $set: { 'users.$.nameUser': data.payload } }, // Dữ liệu cập nhật
                     );
-                    console.log(data.email);
+
+                    await db.collection('exam').updateMany(
+                        { 'user.email': data.email }, // Điều kiện truy vấn
+                        { $set: { 'user.name': data.payload } }, // Dữ liệu cập nhật
+                    );
                 }
 
                 resolve({
@@ -461,6 +455,36 @@ let getAllExamUserLike = (data) => {
     });
 };
 
+let filterUserByAdmin = (data) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let user = await db
+                .collection('users')
+                .find({
+                    $and: [
+                        { roleID: { $ne: 'R1' } },
+                        { email: { $regex: data.email, $options: 'i' } },
+                        { name: { $regex: data.name, $options: 'i' } },
+                        data.amountCreated
+                            ? data.typeAmount === 'greater'
+                                ? { amountCreate: { $gte: +data.amountCreated } }
+                                : { amountCreate: { $lte: +data.amountCreated } }
+                            : {},
+                    ],
+                })
+                .toArray();
+
+            resolve({
+                errCode: 0,
+                message: 'Lấy thông tin bài thi thành công',
+                data: user,
+            });
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
 export default {
     createNewUser,
     login,
@@ -474,4 +498,5 @@ export default {
     getUserLikeExam,
     userLikeExam,
     getAllExamUserLike,
+    filterUserByAdmin,
 };

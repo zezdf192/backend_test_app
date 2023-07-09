@@ -30,6 +30,8 @@ const initDBUser = (app) => {
     router.post('/get-code-forgot-password', userController.forgotPassword);
     router.post('/change-password', userController.changePassword);
 
+    router.post('/filter-user-by-admin', userController.filterUserByAdmin);
+
     return app.use('/api', router);
 };
 

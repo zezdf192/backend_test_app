@@ -26,17 +26,24 @@ let checkMissingParams = (data) => {
 let createNewExam = (data) => {
     return new Promise(async (resolve, reject) => {
         try {
-            let ischeck = checkMissingParams(data);
+            let copyData = data;
+            if (!data.image) {
+                delete copyData.image;
+            }
+
+            let ischeck = checkMissingParams(copyData);
             if (ischeck) {
                 resolve({
                     errCode: 1,
                     message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
                 });
             } else {
-                let user = await db
-                    .collection('users')
-                    .find({ _id: new ObjectId(data.userID) })
-                    .toArray();
+                let user = await db.collection('users').find({ email: data.email }).toArray();
+
+                await db.collection('users').updateOne(
+                    { email: data.email },
+                    { $inc: { amountCreate: 1 } }, // Tăng giá trị của trường "amountCreate" lên 1
+                );
 
                 await db.collection('exam').insertOne({
                     data,
@@ -143,14 +150,71 @@ let deleteExamById = (data) => {
 let updateExamById = (data) => {
     return new Promise(async (resolve, reject) => {
         try {
-            let ischeck = checkMissingParams(data);
+            let copyData = data;
+            if (!data.image) {
+                delete copyData.image;
+            }
+
+            let ischeck = checkMissingParams(copyData);
+
             if (ischeck) {
                 resolve({
                     errCode: 1,
                     message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
                 });
             } else {
-                await db.collection('exam').updateOne({ _id: new ObjectId(data.examID) }, { $set: { data: data } });
+                let exam = await db
+                    .collection('exam')
+                    .find({ _id: new ObjectId(data.examID) })
+                    .toArray();
+
+                if (exam[0].data) {
+                    if (exam[0].data.typeExam !== data.typeExam) {
+                        await db.collection('ratings').deleteOne({ 'data.examID': data.examID });
+
+                        await db.collection('doExam').deleteMany({ 'data.examID': data.examID });
+
+                        await db.collection('exam').updateOne(
+                            { _id: new ObjectId(data.examID) },
+                            {
+                                $set: {
+                                    'data.password': data.password,
+                                    'data.title': data.title,
+                                    'data.score': data.score,
+                                    'data.description': data.description,
+                                    'data.time': data.time,
+                                    'data.limit': data.limit,
+                                    'data.typeExam': data.typeExam,
+                                    'data.typeAnswer': data.typeAnswer,
+                                    'data.questions': data.questions,
+                                    'data.image': data.image,
+                                    'data.quantityJoin': 0,
+                                    'data.dateExamUpdate': data.dateExamUpdate,
+                                },
+                            },
+                        );
+                    } else {
+                        await db.collection('exam').updateOne(
+                            { _id: new ObjectId(data.examID) },
+                            {
+                                $set: {
+                                    'data.password': data.password,
+                                    'data.title': data.title,
+                                    'data.score': data.score,
+                                    'data.description': data.description,
+                                    'data.time': data.time,
+                                    'data.limit': data.limit,
+                                    'data.typeExam': data.typeExam,
+                                    'data.typeAnswer': data.typeAnswer,
+                                    'data.questions': data.questions,
+                                    'data.image': data.image,
+
+                                    'data.dateExamUpdate': data.dateExamUpdate,
+                                },
+                            },
+                        );
+                    }
+                }
 
                 resolve({
                     errCode: 0,
@@ -176,6 +240,20 @@ let studentDoExam = (data) => {
                 let isUpdateDoExam = false;
                 let isFirstDoExam = false;
 
+                let checkExam = await db
+                    .collection('exam')
+                    .find({ _id: new ObjectId(data.examID) })
+                    .toArray();
+                //console.log(checkExam[0].data.limit);
+                if (checkExam[0].data.limit.value !== 'L0') {
+                    if (checkExam[0].data.limit.valueNum === checkExam[0].data.quantityJoin) {
+                        resolve({
+                            errCode: 1,
+                            message: 'Đã tối đa lượt thi',
+                        });
+                    }
+                }
+
                 let doExam = await db
                     .collection('doExam')
                     .find({
@@ -196,7 +274,7 @@ let studentDoExam = (data) => {
                         await db.collection('doExam').updateOne(
                             {
                                 $and: [
-                                    { 'data.userID': data.userID },
+                                    { 'data.email': data.email },
                                     {
                                         'data.examID': data.examID,
                                     },
@@ -210,7 +288,7 @@ let studentDoExam = (data) => {
                             await db.collection('doExam').updateOne(
                                 {
                                     $and: [
-                                        { 'data.userID': data.userID },
+                                        { 'data.email': data.email },
                                         {
                                             'data.examID': data.examID,
                                         },
@@ -222,7 +300,7 @@ let studentDoExam = (data) => {
                             await db.collection('doExam').updateOne(
                                 {
                                     $and: [
-                                        { 'data.userID': data.userID },
+                                        { 'data.email': data.email },
                                         {
                                             'data.examID': data.examID,
                                         },
@@ -244,7 +322,7 @@ let studentDoExam = (data) => {
                         await db.collection('doExam').updateOne(
                             {
                                 $and: [
-                                    { 'data.userID': data.userID },
+                                    { 'data.email': data.email },
                                     {
                                         'data.examID': data.examID,
                                     },
@@ -284,7 +362,7 @@ let studentDoExam = (data) => {
 
                 //cap nhat danh sach bai thi da lam
 
-                let user = await db.collection('users').findOne({ _id: new ObjectId(data.userID) });
+                let user = await db.collection('users').findOne({ email: data.email });
 
                 if (user) {
                     let isCheck = true;
@@ -298,7 +376,7 @@ let studentDoExam = (data) => {
 
                     if (isCheck) {
                         await db.collection('users').updateOne(
-                            { _id: new ObjectId(data.userID) },
+                            { email: data.email },
                             {
                                 $set: {
                                     userExamID: [...user.userExamID, data.examID],
@@ -341,7 +419,7 @@ let studentDoExam = (data) => {
                                 let copyUsers = raingsUpdate.users;
 
                                 for (let i = 0; i < copyUsers.length; i++) {
-                                    if (copyUsers[i].userID === data.userID) {
+                                    if (copyUsers[i].email === data.email) {
                                         copyUsers[i] = data;
                                         break;
                                     }
@@ -370,7 +448,7 @@ let studentDoExam = (data) => {
                             let copyUsers = raingsUpdate.users;
 
                             for (let i = 0; i < copyUsers.length; i++) {
-                                if (copyUsers[i].userID === data.userID) {
+                                if (copyUsers[i].email === data.email) {
                                     copyUsers[i] = { ...copyUsers[i], quantityJoin: data.quantityJoin };
                                     break;
                                 }
@@ -439,7 +517,7 @@ let getDetailDoExamById = (data) => {
 let searchAllDoExamByUserId = (data) => {
     return new Promise(async (resolve, reject) => {
         try {
-            if (!data.userID) {
+            if (!data.email) {
                 resolve({
                     errCode: 1,
                     message: `Bạn đang nhập thiếu ${ischeck}, vui lòng bổ sung`,
@@ -449,7 +527,7 @@ let searchAllDoExamByUserId = (data) => {
                     .collection('doExam')
                     .find({
                         $and: [
-                            { 'data.userID': { $eq: data.userID } },
+                            { 'data.email': { $eq: data.email } },
                             { 'data.nameExam': { $regex: data.name, $options: 'i' } },
                             data.score
                                 ? data.typeScore === 'greater'
@@ -629,6 +707,51 @@ let searchAllExamByUserEmail = (data) => {
                     message: `Bạn đang nhập thiếu email, vui lòng bổ sung`,
                 });
             } else {
+                let user = await db.collection('users').find({ email: data.email }).toArray();
+
+                if (user[0].roleID === 'R1') {
+                    let fix = await db
+                        .collection('exam')
+                        .find({ 'user.name': { $regex: data.auth, $options: 'i' } })
+                        .toArray();
+                    let exam = await db
+                        .collection('exam')
+                        .find({
+                            $and: [
+                                { 'user.name': { $regex: data.auth, $options: 'i' } },
+                                { 'data.title': { $regex: data.nameExam, $options: 'i' } },
+                                data.currentJoin
+                                    ? data.typeCurrentJoin === 'greater'
+                                        ? { 'data.quantityJoin': { $gte: +data.currentJoin } }
+                                        : { 'data.quantityJoin': { $lte: +data.currentJoin } }
+                                    : {},
+                                data.maxScore !== 'S' ? { 'data.score.value': { $eq: data.maxScore } } : {},
+
+                                data.maxTime !== 'T' ? { 'data.time.value': { $eq: data.maxTime } } : {},
+                                data.maxQuantity !== 'L' ? { 'data.limit.value': { $eq: data.maxQuantity } } : {},
+                                data.typeExam !== 'ALL' ? { 'data.typeExam': { $eq: data.typeExam } } : {},
+
+                                data.dayStart
+                                    ? {
+                                          'data.dateExam': { $gte: data.dayStart },
+                                      }
+                                    : {},
+                                data.dayEnd
+                                    ? {
+                                          'data.dateExam': { $lte: data.dayEnd },
+                                      }
+                                    : {},
+                            ],
+                        })
+                        .toArray();
+
+                    resolve({
+                        errCode: 0,
+                        message: 'Lấy thông tin bài thi thành công',
+                        data: exam,
+                    });
+                }
+
                 let exam = await db
                     .collection('exam')
                     .find({

@@ -179,6 +179,18 @@ let changePassword = async (req, res) => {
     }
 };
 
+let filterUserByAdmin = async (req, res) => {
+    try {
+        let respon = await userService.filterUserByAdmin(req.body);
+        res.status(200).json(respon);
+    } catch (error) {
+        res.status(200).json({
+            errCode: -1,
+            message: 'Error from server',
+        });
+    }
+};
+
 export default {
     createNewUser,
     login,
@@ -194,4 +206,5 @@ export default {
     getAllExamUserLike,
     forgotPassword,
     changePassword,
+    filterUserByAdmin,
 };
